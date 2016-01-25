@@ -21,7 +21,7 @@ public class ProxyServer {
 	      
 	      // Get the command-line arguments: the host and port we are proxy for
 	      // and the local port that we listen for connections on
-	      String host = "www.ida.liu.se";
+	      String host = "www.reddit.com";
 	      int remoteport = 80;
 	      int localport = 6066;
 
@@ -95,19 +95,20 @@ public class ProxyServer {
 	            try {
 	            	while((bytes_read = from_client.read(request)) != -1) {
 	                 	CharSequence cs = new String(request, "US-ASCII");
-	                 	System.out.println("======CLIENT REQUEST =========")
-	                 	System.out.println(cs);
+	                 	//System.out.println("======CLIENT REQUEST =========")
+	                 	//System.out.println(cs);
 	                	if (checkRequest(cs)) {
 			              	to_server.write(request, 0, bytes_read);
 	                		to_server.flush();
 	                	}
 	                	else {
 	                		if (badURL) {
-	                			System.out.println("BAD URL ASSHOLE");
 								PrintWriter out = new PrintWriter(new OutputStreamWriter(to_client));
-			          			out.println("adsfdasfsafdf");
+			          			out.println("HTTP/1.1 302 Found\r\nLocation: error1.html\r\n\r\n");
 			          			out.flush();
-			          			client.close();
+			          			to_server.close();
+			          			//client.close();
+			          			continue;
 	                		}
 	                	}
 
@@ -130,11 +131,17 @@ public class ProxyServer {
 	        // parallel with the client-to-server request thread above.
 	        int bytes_read;
 	        try {
+	        	try {
+    Thread.sleep(100);                 //1000 milliseconds is one second.
+} catch(InterruptedException ex) {
+    Thread.currentThread().interrupt();
+}
+
 	          while((bytes_read = from_server.read(reply)) != -1) {
                     CharSequence cs = new String(reply, "US-ASCII");
-                    //System.out.println("======SERVER REPLY=======");
+                    System.out.println("======SERVER REPLY=======");
                     //System.out.println(x);
-                    //System.out.println(cs);
+                    System.out.println(cs);
                 if (checkResponse(cs)) {
         			to_client.write(reply, 0, bytes_read);
        				to_client.flush();
@@ -144,9 +151,13 @@ public class ProxyServer {
 						if (badWord) {
 						System.out.println("BAD WORD MOTHERFucKER!");
 						PrintWriter out = new PrintWriter(new OutputStreamWriter(to_client));
-	          			out.println(error1);
+	          			out.println("HTTP/1.1 302 Found\r\nLocation: error2.html\r\n\r\n");
 	          			out.flush();
-	          			client.close();
+	          			//to_server.close();
+	          			//to_client.close();
+	          			//client.close();
+	          			//server.close();
+	          			continue;
 				}
 			            
 				}
@@ -187,9 +198,9 @@ public class ProxyServer {
               return true;
           }
         private static boolean checkResponse(CharSequence cs) {
-        	return true;
+        	//return true;
         	for (String s: badwords) {
-        		if (cs.toLowerCase().contains(s)) {
+        		if (cs.toString().toLowerCase().contains(s.toLowerCase())) {
         			badWord = true;
         			return false;
         		}
