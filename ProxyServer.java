@@ -69,10 +69,12 @@ public class ProxyServer {
                         System.out.println(from_client.available());
                         while((client_read = from_client.read(request)) != -1) {
                             
+                            //save entire request from inputstream for later use
                             getRequest = new String(request, "US-ASCII");
                             Pattern p = Pattern.compile("Host:.(.*)");
                             Matcher m = p.matcher(getRequest);
                             
+                            //find host in GET request
                             if (m.find()) {
                                 host = m.group(1);
                                 break;
@@ -88,17 +90,20 @@ public class ProxyServer {
 
                     //proxy -> server
                     try {
+                    	//check GET request for bad URLs
                         if (checkRequest(getRequest)) {
                             server = new Socket(host, remoteport);
                             from_server = server.getInputStream();
                             to_server = server.getOutputStream();
-
+                            //everything checks out, send bytes that we read
+                            //earlier to server
                             to_server.write(request, 0, client_read);
                             to_server.flush();
                         }
                         else {
                                 System.out.println("request contains bad URL");
                                 PrintWriter out = new PrintWriter(new OutputStreamWriter(to_client));
+                                //Bad URL detected, redirect to corresponding error page
                                 out.println("HTTP/1.1 301 Moved Permanently\r\nLocation: http://www.ida.liu.se/~TDTS04/labs/2011/ass2/error1.html\r\n\r\n");
                                 out.flush();   
                                 //client.close();
@@ -111,13 +116,15 @@ public class ProxyServer {
                     }
                     //server -> proxy -> client
                     try {
+                    	//TODO: Fix logic to handle content checking properly, probably need to save multiple byte arrays of dynamic size depending on content-length in 
+                    	//server response
                             int server_bytes = 0;
                             byte[] buffer = new byte[1024];
                             byte[] reply;
                             boolean header = false;
                             boolean badContent = false;
 
-                            System.out.println("From server: " + from_server.available());
+                            //System.out.println("From server: " + from_server.available());
                             while((server_bytes = from_server.read(buffer)) != -1) {
                                 CharSequence serverCs = new String(buffer, "US-ASCII");
 
