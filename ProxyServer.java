@@ -1,10 +1,13 @@
 //package proxyserver;
-
+import java.io.*; 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
+import java.io.ByteArrayOutputStream;
 import java.io.PrintWriter;
+import java.lang.Object.*;
+import java.nio.charset.Charset;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.logging.Level;
@@ -43,8 +46,8 @@ public class ProxyServer {
             
             final Socket client;
             client = ss.accept();
-            System.out.println(client.isConnected());
-
+            System.out.println("NEW SOCKET");
+            
             Thread t = new Thread() {
                 public void run() {
                     byte[] request = new byte[1024];
@@ -52,8 +55,9 @@ public class ProxyServer {
                     int client_read = 0;
                     int server_read = 0;
                     String host = "";
+                    String getRequest = "";
                     CharSequence cs = "";
-                    CharSequence getRequest = "";
+                    //CharSequence getRequest = "";
                     Socket server = null;
                     InputStream from_client = null;
                     InputStream from_server = null;
@@ -65,10 +69,28 @@ public class ProxyServer {
 
                         from_client = client.getInputStream();
                         to_client = client.getOutputStream();
-
-                        System.out.println(from_client.available());
-                        while((client_read = from_client.read(request)) != -1) {
+                        BufferedReader br = new BufferedReader(new InputStreamReader(from_client));
+                        StringBuffer sBuffer = new StringBuffer();
+                        int c = 0;
+                        //System.out.println(from_client.available());
+                        //while((client_read = from_client.read(request)) != -1) {
+                        int read = 0;
+                        while ((c = br.read()) != -1) {
+                        //    getRequest = new String(request, "US-ASCII");
                             
+<<<<<<< HEAD
+                            //System.out.println(sBuffer.toString());
+                            /*if (sBuffer.toString().length() >= 50 && sBuffer.toString().substring(sBuffer.toString().length() - 4).contains("\r\n\r\n")) {
+                                    System.out.println("end found");
+                                    //sBuffer.append("\r\n\r\n");
+                                    break; //end loop at end of response header
+                            }*/
+                            sBuffer.append((char) c);
+                            if (sBuffer.toString().contains("\r\n\r\n")) {
+                                System.out.println("end found");
+                                //sBuffer.append("\r\n\r\n");
+                                break; //end loop at end of response header
+=======
                             //save entire request from inputstream for later use
                             getRequest = new String(request, "US-ASCII");
                             Pattern p = Pattern.compile("Host:.(.*)");
@@ -78,12 +100,27 @@ public class ProxyServer {
                             if (m.find()) {
                                 host = m.group(1);
                                 break;
+>>>>>>> 9a45db0cff13d57d6bbca235fb80aa6a70aeb54b
                             }
                             
-                            
-                            }
+                            //System.out.println(sBuffer.toString());
 
-                        System.out.println(host);
+                        }
+                        getRequest = sBuffer.toString();
+                        Pattern p = Pattern.compile("Host:.(.*)");
+                        Matcher m = p.matcher(getRequest);
+                        
+                        if (m.find()) {
+                            host = m.group(1);
+                        }
+                        //System.out.println(getRequest);
+                        getRequest = getRequest.replaceAll("Connection:.keep-alive", "Connection: closed");
+                        System.out.println(getRequest);
+
+                        
+                    
+
+                        //System.out.println(host);
                     } catch (IOException e) {
                         System.err.println("error reading client request" + e);
                     }
@@ -95,19 +132,30 @@ public class ProxyServer {
                             server = new Socket(host, remoteport);
                             from_server = server.getInputStream();
                             to_server = server.getOutputStream();
+<<<<<<< HEAD
+                            System.out.println("aids");
+                            //to_server.write(request, 0, client_read);
+                            PrintWriter out = new PrintWriter(new OutputStreamWriter(to_server));
+                            out.println(getRequest);
+                            out.flush();
+                            //to_server.close();
+=======
                             //everything checks out, send bytes that we read
                             //earlier to server
                             to_server.write(request, 0, client_read);
                             to_server.flush();
+>>>>>>> 9a45db0cff13d57d6bbca235fb80aa6a70aeb54b
                         }
                         else {
                                 System.out.println("request contains bad URL");
                                 PrintWriter out = new PrintWriter(new OutputStreamWriter(to_client));
                                 //Bad URL detected, redirect to corresponding error page
                                 out.println("HTTP/1.1 301 Moved Permanently\r\nLocation: http://www.ida.liu.se/~TDTS04/labs/2011/ass2/error1.html\r\n\r\n");
-                                out.flush();   
-                                //client.close();
-                                //server.close();                                
+                                out.flush();  
+                                out.close();
+                                to_client.close(); 
+                                client.close();
+                                server.close();                                
                             }   
                         
 
@@ -119,11 +167,82 @@ public class ProxyServer {
                     	//TODO: Fix logic to handle content checking properly, probably need to save multiple byte arrays of dynamic size depending on content-length in 
                     	//server response
                             int server_bytes = 0;
-                            byte[] buffer = new byte[1024];
-                            byte[] reply;
+                            
+                            byte[] reply = null;
                             boolean header = false;
                             boolean badContent = false;
+                            boolean filter = false;
+                            int contentLength = 0;
+                            int totalBytes = 0;
+                            //int pos = 0;
+                            //b response = "";
+                            Charset charset = Charset.forName("UTF8");
+                            BufferedReader br = new BufferedReader(new InputStreamReader(from_server));
+                            ByteArrayOutputStream response = new ByteArrayOutputStream();
+                            //System.out.println("From server: " + from_server.available());
+                            String line;
+                            String responseHeader = "";
+                            while ((line = br.readLine()) != null) {
+                                System.out.println(line);
+                                if (line.equals("")) {
+                                    System.out.println("end found");
+                                    break; //end loop at end of response header
+                                }
+                                Pattern p = Pattern.compile("Content-Length: (.*)");
+                                Matcher m = p.matcher(line);
+                                if (m.find()) {
+                                    if (Integer.parseInt(m.group(1)) > 0) {
+                                        contentLength = Integer.parseInt(m.group(1));
+                                        System.out.println("CONTENT LENGTH");
+                                        System.out.println(contentLength);
+                                    }
+                                }
+                                if (!filter) {
+                                    if (checkFilter(line)) {
+                                        filter = true;
+                                    }
+                                }
+                                responseHeader += line + "\r\n";
+                            }
+                            responseHeader += "\r\n\r\n";
+                            //System.out.println(responseHeader);
+                            PrintWriter out = new PrintWriter(new OutputStreamWriter(to_client));
+                            out.print(responseHeader);
+                            out.flush();
+                            filter = true;
+                            if (!filter) {
+                                int read = 0;
+                                String responseBody = "" ;
+                                System.out.println("NOT FILTERING RESPONSE");
+                                byte[] buffer = new byte[1024];
+                                while((server_bytes = from_server.read(buffer)) != -1) {
+                                    to_client.write(buffer);
+                                    to_client.flush();
+                                    contentLength = 0;
+                                }
 
+                                /*while ((read = br.read()) != -1) {
+                                    
+                                    responseBody += (char) read;
+                                    //System.out.println((char) read);
+                                    //responseBody += new String(read, "US-ASCII");
+                                }
+                                out.print(responseBody);
+                                out.flush();*/
+                            }
+                            System.out.println("reading response body");
+                            String responseBody = "";
+                            int read = 0;
+
+<<<<<<< HEAD
+                            while ((read = br.read()) != -1) {
+                                
+                                responseBody += (char) read;
+                                //System.out.println((char) read);
+                                //responseBody += new String(read, "US-ASCII");
+                                if (responseBody.length() == contentLength) {
+                                    System.out.println("BREAKING");
+=======
                             //System.out.println("From server: " + from_server.available());
                             while((server_bytes = from_server.read(buffer)) != -1) {
                                 CharSequence serverCs = new String(buffer, "US-ASCII");
@@ -149,36 +268,82 @@ public class ProxyServer {
 
                                 if (!checkResponse(serverCs)) {
                                     badContent = true;
+>>>>>>> 9a45db0cff13d57d6bbca235fb80aa6a70aeb54b
                                     break;
-                                    //to_client.write(reply, 0, server_bytes);
-                                    //to_client.flush();
                                 }
                                 
-                                    /*System.out.println("request contains bad content");
-                                    PrintWriter out = new PrintWriter(new OutputStreamWriter(to_client));
-                                    out.println("HTTP/1.1 301 Moved Permanently\r\nLocation: http://www.ida.liu.se/~TDTS04/labs/2011/ass2/error2.html\r\n\r\n");
-                                    out.flush();   
-                                    //client.close();
-                                    //server.close(); 
-                                    //break; */  
+                            }
+                            
                                 
-
-                                //System.err.println(serverCs);
-                                //System.err.println("in loop");
-                                //System.err.println("stuck in here!");
-
-                    }  
+                            //System.out.println(responseBody);
                     
+
+                            out.write(responseBody);
+                            out.flush();
+
+
+
+
+
+
+
+
+                                /*byte[] buffer = new byte[contentLength];
+                                while((server_bytes = from_server.read(buffer)) != -1) {
+                                    System.out.println("BYTERINOS");
+                                    System.out.println(totalBytes);
+                                    System.out.println(from_server.available());
+                                    System.out.println(contentLength);
+                                    totalBytes += server_bytes;
+                                    //CharSequence serverCs = new String(buffer, "US-ASCII");
+                                    //checkFilter(serverCs);
+                                    //response.write(buffer, 0, server_bytes);
+                                    if (totalBytes == contentLength) {
+                                        System.out.println("breaking!");
+                                        break;
+                                    }
+                                    //reply = buffer.clone(h);
+
+                                    if (!checkResponse(serverCs)) {
+                                        badContent = true;
+                                        System.out.println("here!");
+                                        break;
+                                        //to_client.write(reply, 0, server_bytes);
+                                        //to_client.flush();
+                                    }
+
+                                    }
+                                    //server.close();
+                                    to_client.write(buffer, 0, server_bytes);
+                                    to_client.flush();
+                                    //to_client.close();
+                                    //client.close();*/
+                            
+
+                            //server.close();
+                            /*  
+                            
                     if (!badContent) {
-                        to_client.write(reply, 0, server_bytes);
+                        //to_client.write(reply, 0, server_bytes);
+                        //System.out.println("Full response: " + response + " response end");
+                        //PrintWriter out = new PrintWriter(new OutputStreamWriter(to_client));
+                        //out.print(response);
+                        System.out.println("Response: " + response.toString());
+                        to_client.write(response.toByteArray());
                         to_client.flush();
+                        response.close();
+                        //to_client.close();
+                        //to_client.close();
+                        client.close();
+                        //server.close();
+
                     }
                     else {
                         System.out.println("request contains bad content");
                         PrintWriter out = new PrintWriter(new OutputStreamWriter(to_client));
-                        out.println("HTTP/1.1 301 Moved Permanently\r\nLocation: http://www.ida.liu.se/~TDTS04/labs/2011/ass2/error2.html\r\n\r\n");
+                        out.print("HTTP/1.1 301 Moved Permanently\r\nLocation: http://www.ida.liu.se/~TDTS04/labs/2011/ass2/error2.html\r\n\r\n");
                         out.flush(); 
-                    }
+                    }*/
 
                     } catch (IOException e) {
                         System.out.println("error sending reply to client" + e);
@@ -222,6 +387,21 @@ public class ProxyServer {
             }
         }
         return true;
+    }
+    private static boolean checkFilter(String s) {
+        System.out.println(s);
+        Pattern p = Pattern.compile("Content.Type..(.*)");
+        Matcher m = p.matcher(s);
+        if (m.find()) {
+            //System.out.println("found content type: " + m.group(1));
+            if (m.group(1).equals("text/html")) {
+                System.out.println("found text-html");
+                return true;
+            }
+            
+        }
+        return false;
+
     }
 }
             /*
